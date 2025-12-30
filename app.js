@@ -8,6 +8,7 @@
 const productGrid = document.getElementById('product-grid');
 const authBtn = document.getElementById('auth-btn');
 const fabAdd = document.getElementById('fab-add');
+const searchInput = document.getElementById('search-input'); // New
 
 // Upload Modal
 const modalUpload = document.getElementById('modal-upload');
@@ -35,6 +36,7 @@ const detailWhatsappBtn = document.getElementById('detail-whatsapp-btn');
 let currentUser = null;
 let productsData = [];
 let currentCategory = 'all';
+let currentSearchTerm = ''; // New
 let currentUploadFiles = []; // Array para guardar bases64 temporalmente
 
 // --- 1. AUTENTICACIÓN ---
@@ -135,10 +137,32 @@ filterBtns.forEach(btn => {
     });
 });
 
+// --- SEARCH LOGIC ---
+if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+        currentSearchTerm = e.target.value.trim();
+        filterAndRender();
+    });
+}
+
+
 function filterAndRender() {
-    const filtered = currentCategory === 'all'
-        ? productsData
-        : productsData.filter(p => p.category === currentCategory);
+    // Start with all products
+    let filtered = productsData;
+
+    // 1. Filter by Category
+    if (currentCategory !== 'all') {
+        filtered = filtered.filter(p => p.category === currentCategory);
+    }
+
+    // 2. Filter by Search Term
+    if (currentSearchTerm) {
+        const lowerTerm = currentSearchTerm.toLowerCase();
+        filtered = filtered.filter(p =>
+            p.name.toLowerCase().includes(lowerTerm) ||
+            (p.category && p.category.toLowerCase().includes(lowerTerm))
+        );
+    }
 
     renderGrid(filtered);
 }
@@ -150,11 +174,14 @@ function renderGrid(items) {
 
     if (productsToShow.length === 0) {
         productGrid.innerHTML = `
-            <div class="col-span-full text-center py-20">
-                <p class="text-zinc-600 font-mono text-sm uppercase tracking-widest">// NO HEMOS ENCONTRADO PIEZAS EN ESTA SECCIÓN.</p>
+            <div class="col-span-full text-center py-20 flex flex-col items-center animate-fade-in-up">
+                <i data-lucide="search-x" class="w-12 h-12 text-zinc-700 mb-4"></i>
+                <p class="text-zinc-600 font-mono text-sm uppercase tracking-widest">// SIN RESULTADOS EN EL RADAR.</p>
             </div>`;
+        if (window.lucide) lucide.createIcons();
         return;
     }
+    // ... existing render loop ...
 
     productsToShow.forEach((product, index) => {
         const card = document.createElement('div');
@@ -170,24 +197,35 @@ function renderGrid(items) {
                </span>`
             : '';
 
-        // Tailwind Card Container
+        // Tailwind Card Container (Cyber Upgrade)
         // Added cursor-pointer because clicking opens the modal now
-        card.className = 'group relative bg-zinc-900 border border-zinc-800 hover:border-zinc-500 hover:shadow-2xl hover:shadow-neon/10 hover:-translate-y-1 transition-all duration-300 rounded-2xl overflow-hidden cursor-pointer';
+        card.className = 'group relative bg-black border border-zinc-800 hover:border-neon hover:shadow-[0_0_30px_rgba(255,77,0,0.15)] hover:-translate-y-1 transition-all duration-300 rounded-xl overflow-hidden cursor-pointer';
         card.setAttribute('data-aos', 'fade-up');
         card.setAttribute('data-aos-delay', (index % 4) * 50);
 
         // Open Detail Modal on Click
         card.addEventListener('click', (e) => {
-            // Prevent opening if clicking admin delete button
-            if (e.target.closest('.delete-btn')) return;
+            // Prevent opening if clicking admin button or if sold out (for non-admins)
+            if (e.target.closest('.action-btn') || e.target.closest('.delete-btn')) return;
+
+            // If Sold Out, do nothing for regular users
+            if (product.status === 'sold' && !currentUser) return;
+
             openProductDetail(product);
         });
 
         // Admin Controls
         let adminControls = '';
         if (currentUser) {
+            const isSold = product.status === 'sold';
+            const soldIcon = isSold ? 'refresh-ccw' : 'tag'; // Icon changes
+            const soldColor = isSold ? 'bg-zinc-600' : 'bg-blue-600 hover:bg-blue-700';
+
             adminControls = `
-                <div class="absolute top-2 right-2 z-20">
+                <div class="absolute top-2 right-2 z-20 flex gap-2">
+                    <button onclick="toggleSoldStatus(event, '${product.id}', ${isSold})" class="action-btn ${soldColor} text-white p-2 transition-colors shadow-lg rounded-full" title="${isSold ? 'Marcar Disponible' : 'Marcar Vendido'}">
+                        <i data-lucide="${soldIcon}" width="16"></i>
+                    </button>
                     <button onclick="deleteProduct(event, '${product.id}')" class="delete-btn bg-red-600 text-white p-2 hover:bg-red-700 transition-colors shadow-lg rounded-full">
                         <i data-lucide="trash-2" width="16"></i>
                     </button>
@@ -196,22 +234,37 @@ function renderGrid(items) {
         }
 
         const isNew = product.condition === 'Nuevo';
-        const badgeColor = isNew ? 'bg-neon text-white' : 'bg-zinc-700 text-zinc-300';
+        // Tech Badges Style (Outline/Ghost)
+        const badgeColor = isNew
+            ? 'border border-neon text-neon bg-neon/10'
+            : 'border border-zinc-600 text-zinc-400 bg-zinc-900/50';
+
         const categoryName = product.category || 'PART';
+        const isSoldOut = product.status === 'sold';
+
+        // Custom Styles for Sold Out
+        const containerClasses = isSoldOut ? 'grayscale opacity-75 md:opacity-60 pointer-events-none' : 'group-hover:opacity-100 group-hover:scale-110';
+        const badgeSoldOut = isSoldOut
+            ? `<div class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                 <div class="bg-red-600 text-white font-black font-display rotate-[-12deg] text-3xl px-4 py-2 border-4 border-white shadow-2xl tracking-widest uppercase opacity-100">AGOTADO</div>
+               </div>`
+            : '';
 
         // HTML Logic
         card.innerHTML = `
             <!-- Image Container -->
-            <div class="relative w-full aspect-square overflow-hidden bg-black">
-                <img src="${mainImage}" class="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-110 transition-transform duration-700 ease-out" alt="${product.name}" loading="lazy">
+            <div class="relative w-full aspect-square overflow-hidden bg-zinc-900">
+                <img src="${mainImage}" class="w-full h-full object-cover opacity-90 transition-transform duration-700 ease-out ${containerClasses}" alt="${product.name}" loading="lazy">
                 
-                <div class="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent opacity-60"></div>
+                <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60"></div>
+                ${badgeSoldOut}
                 
+                <!-- Tech Tags -->
                 <div class="absolute top-2 left-2 flex flex-col gap-1 items-start z-10 w-full pr-2">
-                    <span class="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-md ${badgeColor} shadow-lg">
+                    <span class="text-[9px] font-mono font-bold uppercase tracking-widest px-2 py-1 rounded-md ${badgeColor} backdrop-blur-sm">
                         ${product.condition}
                     </span>
-                    <span class="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 bg-black/80 text-white border border-white/20 rounded-md shadow-lg truncate max-w-[80%]">
+                    <span class="text-[9px] font-mono font-bold uppercase tracking-widest px-2 py-1 bg-black/80 text-white border border-white/20 rounded-md backdrop-blur-sm truncate max-w-[80%]">
                         ${categoryName}
                     </span>
                 </div>
@@ -220,24 +273,26 @@ function renderGrid(items) {
             </div>
 
             <!-- Info Container -->
-            <div class="p-4 relative">
-                <div class="flex justify-between items-start mb-2">
-                    <h3 class="text-white font-display font-bold text-lg leading-tight uppercase tracking-tight group-hover:text-neon transition-colors line-clamp-2">
+            <div class="p-5 relative ${isSoldOut ? 'opacity-40' : ''} border-t border-zinc-900">
+                <div class="flex flex-col gap-1 mb-3">
+                    <h3 class="text-white font-display font-bold text-lg leading-tight uppercase tracking-tight group-hover:text-neon transition-colors line-clamp-1">
                         ${product.name}
                     </h3>
+                    <div class="w-8 h-0.5 bg-zinc-800 group-hover:bg-neon transition-colors duration-500"></div>
                 </div>
                 
-                <div class="flex items-center justify-between mt-4 border-t border-zinc-800 pt-3">
-                    <div class="font-mono font-bold text-white text-lg tracking-tight">
-                        S/ ${product.price}
+                <div class="flex items-end justify-between mt-auto">
+                    <div class="flex flex-col">
+                        <span class="text-[9px] text-zinc-500 font-mono uppercase tracking-widest mb-px">Precio</span>
+                        <div class="font-display font-black text-white text-2xl tracking-tighter group-hover:text-neon transition-colors">
+                            S/ ${product.price}
+                        </div>
                     </div>
-                    <div class="text-zinc-400 group-hover:text-white transition-colors">
-                        <i data-lucide="maximize-2" class="w-5 h-5"></i>
+                    <div class="text-zinc-600 group-hover:text-white transition-colors bg-zinc-900/50 p-2 rounded-lg border border-transparent group-hover:border-zinc-700">
+                        <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
                     </div>
                 </div>
             </div>
-            
-            <div class="absolute inset-0 border-2 border-neon opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-300 rounded-2xl"></div>
         `;
 
         productGrid.appendChild(card);
@@ -246,63 +301,154 @@ function renderGrid(items) {
     if (window.lucide) lucide.createIcons();
 }
 
+// --- SLIDER LOGIC & STATE ---
+let currentModalImages = [];
+let currentImageIndex = 0;
+const sliderPrev = document.getElementById('slider-prev');
+const sliderNext = document.getElementById('slider-next');
+const swipeHint = document.getElementById('swipe-hint');
+const mainImgContainer = document.getElementById('detail-main-img')?.parentElement; // Safe access
+
+function updateSliderUI() {
+    // Hide controls if 0 or 1 image
+    if (!currentModalImages || currentModalImages.length <= 1) {
+        if (sliderPrev) sliderPrev.classList.remove('md:flex');
+        if (sliderPrev) sliderPrev.classList.add('hidden');
+        if (sliderNext) sliderNext.classList.remove('md:flex');
+        if (sliderNext) sliderNext.classList.add('hidden');
+        if (swipeHint) swipeHint.classList.add('hidden');
+        return;
+    }
+
+    // Show controls
+    if (sliderPrev) { sliderPrev.classList.remove('hidden'); sliderPrev.classList.add('md:flex'); }
+    if (sliderNext) { sliderNext.classList.remove('hidden'); sliderNext.classList.add('md:flex'); }
+    if (swipeHint) swipeHint.classList.remove('hidden');
+}
+
+function showImage(index) {
+    if (!currentModalImages || currentModalImages.length === 0) return;
+
+    if (index < 0) index = currentModalImages.length - 1;
+    if (index >= currentModalImages.length) index = 0;
+
+    currentImageIndex = index;
+
+    // Transition
+    if (detailMainImg) {
+        detailMainImg.style.opacity = '0.5';
+        setTimeout(() => {
+            detailMainImg.src = currentModalImages[currentImageIndex];
+            detailMainImg.style.opacity = '1';
+        }, 150);
+    }
+
+    // Update thumbnails active state
+    if (detailThumbnails) {
+        const thumbs = detailThumbnails.querySelectorAll('img');
+        thumbs.forEach((t, i) => {
+            if (i === currentImageIndex) {
+                t.classList.add('border-neon', 'opacity-100');
+                t.classList.remove('border-transparent', 'opacity-60');
+                t.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            } else {
+                t.classList.remove('border-neon', 'opacity-100');
+                t.classList.add('border-transparent', 'opacity-60');
+            }
+        });
+    }
+}
+
+// Slider Event Listeners
+if (sliderPrev) sliderPrev.addEventListener('click', (e) => { e.stopPropagation(); showImage(currentImageIndex - 1); });
+if (sliderNext) sliderNext.addEventListener('click', (e) => { e.stopPropagation(); showImage(currentImageIndex + 1); });
+
+// Touch Swipe Logic
+let touchStartX = 0;
+let touchEndX = 0;
+
+if (mainImgContainer) {
+    mainImgContainer.addEventListener('touchstart', e => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    mainImgContainer.addEventListener('touchend', e => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+    }, { passive: true });
+}
+
+function handleSwipe() {
+    if (currentModalImages.length <= 1) return;
+    const threshold = 50;
+    if (touchEndX < touchStartX - threshold) {
+        showImage(currentImageIndex + 1); // Left -> Next
+    }
+    if (touchEndX > touchStartX + threshold) {
+        showImage(currentImageIndex - 1); // Right -> Prev
+    }
+}
+
 // --- 3. DETAIL MODAL LOGIC ---
-
 function openProductDetail(product) {
-    // 1. Get images (array or single string)
-    const images = product.images && product.images.length > 0 ? product.images : [product.imageUrl];
+    // 1. Setup Images
+    currentModalImages = (product.images && product.images.length > 0) ? product.images : [product.imageUrl];
+    currentImageIndex = 0;
 
-    // 2. Set Info
-    detailTitle.textContent = product.name;
-    detailPrice.textContent = product.price;
-    detailCategory.textContent = product.category || 'GENERAL';
-    detailCondition.textContent = product.condition;
+    // 2. Set Main Image (Reset opacity first)
+    detailMainImg.style.opacity = '1';
+    detailMainImg.src = currentModalImages[0];
+    detailMainImg.alt = product.name;
 
-    // WhatsApp Link
-    const msg = `Hola Black Wings! Estoy interesado en el producto: *${product.name}* (S/${product.price}). ¿Podrías enviarme más info?`;
-    detailWhatsappBtn.href = `https://wa.me/51901889707?text=${encodeURIComponent(msg)}`;
-
-    // 3. Set Images
-    // Main Image defaults to first
-    detailMainImg.src = images[0];
-
-    // Build Thumbnails
+    // 3. Generate Thumbnails
     detailThumbnails.innerHTML = '';
-
-    if (images.length > 1) {
+    if (currentModalImages.length > 1) {
         detailThumbnails.classList.remove('hidden');
-        images.forEach((imgSrc, index) => {
-            const thumbBtn = document.createElement('button');
-            thumbBtn.className = `w-16 h-16 rounded-lg overflow-hidden border-2 transition-all flex-shrink-0 ${index === 0 ? 'border-neon opacity-100' : 'border-transparent opacity-60 hover:opacity-100'}`;
-            thumbBtn.innerHTML = `<img src="${imgSrc}" class="w-full h-full object-cover">`;
-
-            thumbBtn.addEventListener('click', () => {
-                // Change main image
-                detailMainImg.style.opacity = '0.5'; // cheap transition effect
-                setTimeout(() => {
-                    detailMainImg.src = imgSrc;
-                    detailMainImg.style.opacity = '1';
-                }, 100);
-
-                // Update active border
-                Array.from(detailThumbnails.children).forEach(btn => {
-                    btn.classList.remove('border-neon', 'opacity-100');
-                    btn.classList.add('border-transparent', 'opacity-60');
-                });
-                thumbBtn.classList.add('border-neon', 'opacity-100');
-                thumbBtn.classList.remove('border-transparent', 'opacity-60');
-            });
-
-            detailThumbnails.appendChild(thumbBtn);
+        currentModalImages.forEach((imgSrc, index) => {
+            const thumb = document.createElement('img');
+            thumb.src = imgSrc;
+            thumb.className = `h-16 w-16 md:h-20 md:w-20 object-cover cursor-pointer hover:opacity-100 transition-opacity rounded-md border-2 ${index === 0 ? 'border-neon opacity-100' : 'border-transparent opacity-60'}`;
+            thumb.onclick = () => showImage(index);
+            detailThumbnails.appendChild(thumb);
         });
     } else {
-        // Hide thumbnails if only 1 image
         detailThumbnails.classList.add('hidden');
     }
 
-    // 4. Show Modal
+    // 4. Update Slider UI (Arrows/Swipe)
+    updateSliderUI();
+
+    // 5. Set Info
+    detailTitle.textContent = product.name;
+    detailPrice.innerHTML = product.price; // innerHTML for styling if needed, but safe here
+
+    detailCategory.textContent = product.category || 'GENERAL';
+    detailCondition.textContent = product.condition;
+
+    // Colors for badges
+    if (product.condition === 'Nuevo') {
+        detailCondition.className = "text-[10px] font-bold uppercase tracking-widest px-3 py-1 bg-neon text-white rounded-full shadow-lg shadow-neon/20";
+    } else {
+        detailCondition.className = "text-[10px] font-bold uppercase tracking-widest px-3 py-1 bg-zinc-700 text-zinc-300 rounded-full";
+    }
+
+    // WhatsApp Link
+    const message = `Hola Black Wings! Estoy interesado en el producto: *${product.name}* (S/ ${product.price}). ¿Está disponible?`;
+    const encodedMessage = encodeURIComponent(message);
+    detailWhatsappBtn.href = `https://wa.me/51958988632?text=${encodedMessage}`;
+
+    // Show Modal
     modalProduct.classList.remove('hidden');
     document.body.style.overflow = 'hidden'; // Lock Body Scroll
+
+    // Animation
+    const modalContent = modalProduct.querySelector('#detail-main-img').closest('div').parentElement; // Target main wrapper
+    // Actually simpler to just target the inner div we know
+    const innerContent = modalProduct.querySelector('.max-w-5xl');
+    if (innerContent) {
+        innerContent.classList.remove('scale-95', 'opacity-0');
+        innerContent.classList.add('scale-100', 'opacity-100');
+    }
 }
 
 // Close Product Modal
@@ -514,6 +660,23 @@ function showConfirmDialog(message) {
         acceptBtn.onclick = () => close(true);
     });
 }
+
+// Toggle Sold Status (Admin)
+window.toggleSoldStatus = async (event, id, currentStatus) => {
+    event.stopPropagation(); // Prevent opening modal
+    const newStatus = currentStatus ? 'available' : 'sold';
+    const message = newStatus === 'sold' ? 'Marcado como VENDIDO' : 'Marcado como DISPONIBLE';
+
+    try {
+        await db.collection('products').doc(id).update({
+            status: newStatus
+        });
+        showToast(message, "success");
+    } catch (error) {
+        console.error("Error al actualizar estado:", error);
+        showToast("Error al actualizar", "error");
+    }
+};
 
 // Delete Function (Updated to handle event propagation)
 window.deleteProduct = async (event, id) => {
