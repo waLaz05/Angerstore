@@ -74,16 +74,56 @@ firebase.auth().onAuthStateChanged(user => {
 
 // --- 2. GESTIÓN DE PRODUCTOS (FIRESTORE) ---
 
+// --- 2. GESTIÓN DE PRODUCTOS (FIRESTORE) ---
 const db = firebase.firestore();
+let unsubscribe = null;
+let visibleLimit = 12; // Start small for speed
+const LIMIT_INCREMENT = 12;
 
-// Escuchar cambios en tiempo real
-db.collection('products')
-    .orderBy('createdAt', 'desc')
-    .limit(50)
-    .onSnapshot(snapshot => {
-        productsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        filterAndRender();
-    });
+// Skeleton Loader
+function renderSkeleton() {
+    productGrid.innerHTML = '';
+    const skeletonHTML = `
+        <div class="bg-zinc-900 rounded-xl overflow-hidden aspect-square animate-pulse">
+            <div class="bg-zinc-800 h-full w-full"></div>
+        </div>
+    `.repeat(4); // Show 4 skeletons
+    productGrid.innerHTML = skeletonHTML;
+}
+
+// Subscribe with dynamic limit
+function subscribeToProducts() {
+    if (unsubscribe) unsubscribe(); // Unsub previous
+
+    // Show skeleton only on first load
+    if (productsData.length === 0) renderSkeleton();
+
+    unsubscribe = db.collection('products')
+        .orderBy('createdAt', 'desc')
+        .limit(visibleLimit)
+        .onSnapshot(snapshot => {
+            productsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            filterAndRender();
+        }, err => {
+            console.error("Error fetching products:", err);
+            showToast("Error de conexión.", "error");
+        });
+}
+
+// Initial Sub
+subscribeToProducts();
+
+// Load More Function
+window.loadMoreProducts = () => {
+    const btn = document.getElementById('load-more-btn');
+    if (btn) {
+        btn.textContent = 'CARGANDO...';
+        btn.disabled = true;
+    }
+
+    visibleLimit += LIMIT_INCREMENT;
+    subscribeToProducts();
+};
 
 // --- FILTER LOGIC ---
 // --- FILTER LOGIC ---
@@ -299,6 +339,26 @@ function renderGrid(items) {
     });
 
     if (window.lucide) lucide.createIcons();
+    // AOS Refresh for new elements
+    /* if (window.AOS) setTimeout(() => window.AOS.refresh(), 500); -> Removed excessive refreshes, better to just let it init */
+
+    // Load More Button Logic
+    // If we have as many items as the limit, likely there are more (or exactly that many).
+    // Show button to be safe.
+    if (productsToShow.length >= visibleLimit && currentCategory === 'all' && !currentSearchTerm) {
+        const loadMoreContainer = document.createElement('div');
+        loadMoreContainer.className = 'col-span-full flex justify-center py-8 animate-fade-in-up';
+        loadMoreContainer.innerHTML = `
+            <button id="load-more-btn" onclick="loadMoreProducts()" 
+                class="group relative px-8 py-3 bg-zinc-900 border border-zinc-700 text-white font-display font-bold uppercase tracking-widest hover:bg-zinc-800 hover:border-neon transition-all duration-300 rounded-full shadow-lg">
+                <span class="relative z-10 flex items-center gap-2">
+                    Cargar Más Arsenal <i data-lucide="arrow-down" class="w-4 h-4 group-hover:translate-y-1 transition-transform"></i>
+                </span>
+            </button>
+        `;
+        productGrid.appendChild(loadMoreContainer);
+        if (window.lucide) lucide.createIcons();
+    }
 }
 
 // --- SLIDER LOGIC & STATE ---
