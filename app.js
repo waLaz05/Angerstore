@@ -511,6 +511,8 @@ function renderGrid(items) {
 // --- SLIDER LOGIC & STATE ---
 let currentModalImages = [];
 let currentImageIndex = 0;
+let isTransitioning = false;
+let transitionTimeout = null;
 const sliderPrev = document.getElementById('slider-prev');
 const sliderNext = document.getElementById('slider-next');
 const swipeHint = document.getElementById('swipe-hint');
@@ -539,44 +541,56 @@ function updateSliderUI() {
 }
 
 function showImage(index) {
-    if (!currentModalImages || currentModalImages.length === 0 || !detailMainImg) return;
+    if (!currentModalImages || currentModalImages.length <= 1 || !detailMainImg || isTransitioning) return;
 
     if (index < 0) index = currentModalImages.length - 1;
     if (index >= currentModalImages.length) index = 0;
 
     currentImageIndex = index;
+    isTransitioning = true;
 
-    // Efecto de Salida (Fade Out + Scale Up)
+    // Limpiar cualquier timeout previo
+    if (transitionTimeout) clearTimeout(transitionTimeout);
+
+    // Efecto de Salida (Rápido y fluido)
     detailMainImg.style.opacity = '0';
-    detailMainImg.style.transform = 'scale(1.08)';
+    detailMainImg.style.transform = 'scale(1.05)';
 
-    // Esperar un poco para el cambio de fuente (para suavidad)
-    setTimeout(() => {
+    transitionTimeout = setTimeout(() => {
         const nextImg = new Image();
         nextImg.src = currentModalImages[currentImageIndex];
 
-        nextImg.onload = () => {
+        const finalize = () => {
             detailMainImg.src = nextImg.src;
-            // Efecto de Entrada (Fade In + Scale Normal)
             requestAnimationFrame(() => {
                 detailMainImg.style.opacity = '1';
                 detailMainImg.style.transform = 'scale(1)';
+
+                // Desbloquear después de que la animación CSS termine (aprox 700ms)
+                setTimeout(() => {
+                    isTransitioning = false;
+                }, 400);
             });
         };
-    }, 150);
 
-    // Actualizar miniaturas
+        if (nextImg.complete) {
+            finalize();
+        } else {
+            nextImg.onload = finalize;
+            nextImg.onerror = () => { isTransitioning = false; };
+        }
+    }, 100);
+
+    // Actualizar miniaturas (esto puede ser instantáneo)
     if (detailThumbnails) {
         const thumbs = detailThumbnails.querySelectorAll('img');
         thumbs.forEach((t, i) => {
-            if (i === currentImageIndex) {
-                t.classList.add('border-neon', 'opacity-100');
-                t.classList.remove('border-transparent', 'opacity-60');
-                t.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-            } else {
-                t.classList.remove('border-neon', 'opacity-100');
-                t.classList.add('border-transparent', 'opacity-60');
-            }
+            const isActive = i === currentImageIndex;
+            t.classList.toggle('border-neon', isActive);
+            t.classList.toggle('opacity-100', isActive);
+            t.classList.toggle('border-transparent', !isActive);
+            t.classList.toggle('opacity-60', !isActive);
+            if (isActive) t.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
         });
     }
 }
@@ -642,13 +656,16 @@ function openProductDetail(product) {
     preloadModalImages(currentModalImages);
 
     // 2. Set Main Image con reset de animación
+    isTransitioning = false;
+    if (transitionTimeout) clearTimeout(transitionTimeout);
+
     detailMainImg.style.transition = 'none';
     detailMainImg.style.opacity = '0';
-    detailMainImg.style.transform = 'scale(1.1)';
+    detailMainImg.style.transform = 'scale(1.05)';
 
     setTimeout(() => {
         detailMainImg.src = currentModalImages[0];
-        detailMainImg.style.transition = 'all 0.8s cubic-bezier(0.23, 1, 0.32, 1)';
+        detailMainImg.style.transition = 'all 0.6s cubic-bezier(0.23, 1, 0.32, 1)';
         detailMainImg.style.opacity = '1';
         detailMainImg.style.transform = 'scale(1)';
     }, 50);
