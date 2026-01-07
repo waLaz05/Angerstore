@@ -204,27 +204,36 @@ firebase.auth().onAuthStateChanged(user => {
 
     if (user) {
         const userEmail = user.email.toLowerCase().trim();
-        const isAdmin = ADMIN_EMAILS.some(e => e.toLowerCase().trim() === userEmail);
+        const isAdmin = ADMIN_EMAILS.map(e => e.toLowerCase().trim()).includes(userEmail);
 
-        console.log("ANGER DEBUG - Current User:", userEmail);
-        console.log("ANGER DEBUG - Admin List:", ADMIN_EMAILS);
+        console.log("ANGER AUTH - User:", userEmail);
+        console.log("ANGER AUTH - Is Admin:", isAdmin);
 
         if (isAdmin) {
-            // ADMIN MODE - MASTER ACCESS (Red Dashboard Icon)
+            // ADMIN MODE - MASTER ACCESS
             authBtn.innerHTML = `<i data-lucide="layout-dashboard" class="w-5 h-5 text-red-600"></i>`;
             if (fabAdd) {
                 fabAdd.classList.remove('hidden');
-                fabAdd.style.setProperty('display', 'flex', 'important');
-                fabAdd.style.zIndex = '999999';
+                fabAdd.style.display = 'flex';
+                fabAdd.style.opacity = '1';
+                fabAdd.style.pointerEvents = 'auto';
             }
-            showToast("Master Access Granted", "success");
+            showToast("Modo Administrador Activo", "success");
         } else {
             // CUSTOMER MODE
             authBtn.innerHTML = `<img src="${user.photoURL || 'https://ui-avatars.com/api/?name=' + user.email}" class="w-6 h-6 rounded-full border border-white/20">`;
+            if (fabAdd) {
+                fabAdd.classList.add('hidden');
+                fabAdd.style.display = 'none';
+            }
         }
     } else {
         // LOGGED OUT
         authBtn.innerHTML = `<i data-lucide="user" class="w-5 h-5"></i>`;
+        if (fabAdd) {
+            fabAdd.classList.add('hidden');
+            fabAdd.style.display = 'none';
+        }
     }
 
     // Refresh catalog with current role context
@@ -541,47 +550,39 @@ function updateSliderUI() {
 }
 
 function showImage(index) {
-    if (!currentModalImages || currentModalImages.length <= 1 || !detailMainImg || isTransitioning) return;
+    if (!currentModalImages || currentModalImages.length <= 1 || !detailMainImg) return;
 
     if (index < 0) index = currentModalImages.length - 1;
     if (index >= currentModalImages.length) index = 0;
 
     currentImageIndex = index;
-    isTransitioning = true;
 
-    // Limpiar cualquier timeout previo
+    // Limpiar cualquier timeout previo de animación
     if (transitionTimeout) clearTimeout(transitionTimeout);
 
-    // Efecto de Salida (Rápido y fluido)
-    detailMainImg.style.opacity = '0';
-    detailMainImg.style.transform = 'scale(1.05)';
+    // Animación de salida inmediata
+    detailMainImg.style.transition = 'all 0.2s ease-in-out';
+    detailMainImg.style.opacity = '0.3';
+    detailMainImg.style.transform = 'scale(0.98)';
 
-    transitionTimeout = setTimeout(() => {
-        const nextImg = new Image();
-        nextImg.src = currentModalImages[currentImageIndex];
+    // Pre-cargar y cambiar
+    const nextImg = new Image();
+    nextImg.src = currentModalImages[currentImageIndex];
 
-        const finalize = () => {
-            detailMainImg.src = nextImg.src;
-            requestAnimationFrame(() => {
-                detailMainImg.style.opacity = '1';
-                detailMainImg.style.transform = 'scale(1)';
+    const updateUI = () => {
+        detailMainImg.src = nextImg.src;
+        detailMainImg.style.transition = 'all 0.5s cubic-bezier(0.23, 1, 0.32, 1)';
+        detailMainImg.style.opacity = '1';
+        detailMainImg.style.transform = 'scale(1)';
+    };
 
-                // Desbloquear después de que la animación CSS termine (aprox 700ms)
-                setTimeout(() => {
-                    isTransitioning = false;
-                }, 400);
-            });
-        };
+    if (nextImg.complete) {
+        updateUI();
+    } else {
+        nextImg.onload = updateUI;
+    }
 
-        if (nextImg.complete) {
-            finalize();
-        } else {
-            nextImg.onload = finalize;
-            nextImg.onerror = () => { isTransitioning = false; };
-        }
-    }, 100);
-
-    // Actualizar miniaturas (esto puede ser instantáneo)
+    // Miniaturas (Instantáneas)
     if (detailThumbnails) {
         const thumbs = detailThumbnails.querySelectorAll('img');
         thumbs.forEach((t, i) => {
@@ -590,7 +591,6 @@ function showImage(index) {
             t.classList.toggle('opacity-100', isActive);
             t.classList.toggle('border-transparent', !isActive);
             t.classList.toggle('opacity-60', !isActive);
-            if (isActive) t.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
         });
     }
 }
