@@ -6,7 +6,7 @@
 // REFERENCIAS DOM
 const productGrid = document.getElementById('product-grid');
 const authBtn = document.getElementById('auth-btn');
-const ADMIN_EMAIL = "josephivan3005@gmail.com"; // Global Admin Identifier - Corrected
+const ADMIN_EMAILS = ["josephivan3005@gmail.com", "luiscachay0118@gmail.com"]; // Admin List
 const modalLogin = document.getElementById('modal-login');
 const loginForm = document.getElementById('login-form');
 const loginEmailInput = document.getElementById('login-email');
@@ -204,12 +204,12 @@ firebase.auth().onAuthStateChanged(user => {
 
     if (user) {
         const userEmail = user.email.toLowerCase().trim();
-        const targetAdmin = ADMIN_EMAIL.toLowerCase().trim();
+        const isAdmin = ADMIN_EMAILS.some(e => e.toLowerCase().trim() === userEmail);
 
         console.log("ANGER DEBUG - Current User:", userEmail);
-        console.log("ANGER DEBUG - Admin Required:", targetAdmin);
+        console.log("ANGER DEBUG - Admin List:", ADMIN_EMAILS);
 
-        if (userEmail === targetAdmin) {
+        if (isAdmin) {
             // ADMIN MODE - MASTER ACCESS (Red Dashboard Icon)
             authBtn.innerHTML = `<i data-lucide="layout-dashboard" class="w-5 h-5 text-red-600"></i>`;
             if (fabAdd) {
@@ -416,7 +416,7 @@ function renderGrid(items) {
 
         // Admin Controls (SECURITY FIX: Strictly check email)
         let adminControls = '';
-        if (currentUser && currentUser.email.toLowerCase().trim() === ADMIN_EMAIL) {
+        if (currentUser && ADMIN_EMAILS.some(e => e.toLowerCase().trim() === currentUser.email.toLowerCase().trim())) {
             const isSold = product.status === 'sold';
             const soldIcon = isSold ? 'refresh-ccw' : 'tag';
             const soldColor = isSold ? 'bg-zinc-600' : 'bg-red-600 hover:bg-red-700';
