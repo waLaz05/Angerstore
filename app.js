@@ -517,19 +517,24 @@ const swipeHint = document.getElementById('swipe-hint');
 const mainImgContainer = document.getElementById('detail-main-img')?.parentElement; // Safe access
 
 function updateSliderUI() {
+    console.log("Gallerie length:", currentModalImages?.length);
     // Hide controls if 0 or 1 image
     if (!currentModalImages || currentModalImages.length <= 1) {
-        if (sliderPrev) sliderPrev.classList.remove('md:flex');
         if (sliderPrev) sliderPrev.classList.add('hidden');
-        if (sliderNext) sliderNext.classList.remove('md:flex');
         if (sliderNext) sliderNext.classList.add('hidden');
         if (swipeHint) swipeHint.classList.add('hidden');
         return;
     }
 
-    // Show controls
-    if (sliderPrev) { sliderPrev.classList.remove('hidden'); sliderPrev.classList.add('md:flex'); }
-    if (sliderNext) { sliderNext.classList.remove('hidden'); sliderNext.classList.add('md:flex'); }
+    // Show controls (Using flex for all screens if multi-image)
+    if (sliderPrev) {
+        sliderPrev.classList.remove('hidden');
+        sliderPrev.style.display = 'flex';
+    }
+    if (sliderNext) {
+        sliderNext.classList.remove('hidden');
+        sliderNext.style.display = 'flex';
+    }
     if (swipeHint) swipeHint.classList.remove('hidden');
 }
 
@@ -566,9 +571,23 @@ function showImage(index) {
     }
 }
 
-// Slider Event Listeners
-if (sliderPrev) sliderPrev.addEventListener('click', (e) => { e.stopPropagation(); showImage(currentImageIndex - 1); });
-if (sliderNext) sliderNext.addEventListener('click', (e) => { e.stopPropagation(); showImage(currentImageIndex + 1); });
+// Slider Event Listeners (Using a wrapper to ensure current index is always fresh)
+if (sliderPrev) {
+    sliderPrev.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log("Prev Button Clicked");
+        showImage(currentImageIndex - 1);
+    });
+}
+if (sliderNext) {
+    sliderNext.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log("Next Button Clicked");
+        showImage(currentImageIndex + 1);
+    });
+}
 
 // Touch Swipe Logic
 let touchStartX = 0;
