@@ -423,11 +423,11 @@ function renderGrid(items) {
 
             adminControls = `
                 <div class="absolute top-2 right-2 z-20 flex gap-2">
-                    <button onclick="toggleSoldStatus(event, '${product.id}', ${isSold})" class="action-btn ${soldColor} text-white p-2 transition-colors shadow-lg rounded-full" title="${isSold ? 'Marcar Disponible' : 'Marcar Vendido'}">
-                        <i data-lucide="${soldIcon}" width="16"></i>
+                    <button onclick="toggleSoldStatus(event, '${product.id}', ${isSold})" class="action-btn ${soldColor} text-white p-3 md:p-2 transition-colors shadow-lg rounded-full" title="${isSold ? 'Marcar Disponible' : 'Marcar Vendido'}">
+                        <i data-lucide="${soldIcon}" class="w-5 h-5 md:w-4 md:h-4"></i>
                     </button>
-                    <button onclick="deleteProduct(event, '${product.id}')" class="delete-btn bg-black text-white p-2 hover:bg-zinc-800 transition-colors shadow-lg rounded-full">
-                        <i data-lucide="trash-2" width="16"></i>
+                    <button onclick="deleteProduct(event, '${product.id}')" class="delete-btn bg-black text-white p-3 md:p-2 hover:bg-zinc-800 transition-colors shadow-lg rounded-full">
+                        <i data-lucide="trash-2" class="w-5 h-5 md:w-4 md:h-4"></i>
                     </button>
                 </div>
             `;

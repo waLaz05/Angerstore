@@ -237,30 +237,61 @@
         /* Mobile specific enhancements */
         @media (max-width: 768px) {
             .mobile-grid-gap {
-                gap: 1rem !important;
+                gap: 0.75rem !important;
             }
 
             .mobile-text-xs {
-                font-size: 0.65rem !important;
+                font-size: 0.6rem !important;
             }
 
             .mobile-padding {
-                padding-left: 1rem !important;
-                padding-right: 1rem !important;
+                padding: 1rem !important;
+            }
+
+            /* Responsive FAB */
+            #fab-add {
+                bottom: 1.5rem !important;
+                right: 1.5rem !important;
+                width: 3.5rem !important;
+                height: 3.5rem !important;
+            }
+
+            /* Better filter scroll for small screens */
+            .filter-container {
+                overflow-x: auto !important;
+                justify-content: flex-start !important;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 0.5rem;
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                gap: 2rem !important;
+                mask-image: linear-gradient(to right, black 85%, transparent 100%);
+            }
+
+            .filter-container::-webkit-scrollbar {
+                display: none;
             }
         }
 
         /* Prevent body scroll when menu open */
         body.menu-open {
-            overflow: hidden;
+            overflow: hidden !important;
+            touch-action: none !important;
+            -webkit-overflow-scrolling: none !important;
         }
 
         #mobile-menu {
-            transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            height: 100dvh;
         }
 
         #mobile-menu.hidden-menu {
-            transform: translateY(-100%);
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(1.1);
         }
     </style>
 
@@ -495,24 +526,24 @@
                 </div>
 
                 <!-- 1. Quick Access Bar (Top Categories) -->
-                <div class="flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
+                <div class="filter-container flex flex-wrap items-center justify-center gap-x-8 gap-y-4 px-2">
                     <button
-                        class="filter-btn text-white transition-all text-[11px] font-display font-bold uppercase tracking-[0.3em] relative pb-1 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-[1px] after:bg-white"
+                        class="filter-btn text-white transition-all text-[11px] font-display font-bold uppercase tracking-[0.3em] relative pb-1 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-[1px] after:bg-white whitespace-nowrap"
                         data-category="all">
                         Todos
                     </button>
                     <button
-                        class="filter-btn text-zinc-500 hover:text-white transition-all text-[11px] font-display font-bold uppercase tracking-[0.3em] relative pb-1 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[1px] after:bg-white hover:after:w-full"
+                        class="filter-btn text-zinc-500 hover:text-white transition-all text-[11px] font-display font-bold uppercase tracking-[0.3em] relative pb-1 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[1px] after:bg-white hover:after:w-full whitespace-nowrap"
                         data-category="Camisetas">
                         Camisetas
                     </button>
                     <button
-                        class="filter-btn text-zinc-500 hover:text-white transition-all text-[11px] font-display font-bold uppercase tracking-[0.3em] relative pb-1 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[1px] after:bg-white hover:after:w-full"
+                        class="filter-btn text-zinc-500 hover:text-white transition-all text-[11px] font-display font-bold uppercase tracking-[0.3em] relative pb-1 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[1px] after:bg-white hover:after:w-full whitespace-nowrap"
                         data-category="Pantalones">
                         Pantalones
                     </button>
                     <button
-                        class="filter-btn text-zinc-500 hover:text-white transition-all text-[11px] font-display font-bold uppercase tracking-[0.3em] relative pb-1 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[1px] after:bg-white hover:after:w-full"
+                        class="filter-btn text-zinc-500 hover:text-white transition-all text-[11px] font-display font-bold uppercase tracking-[0.3em] relative pb-1 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[1px] after:bg-white hover:after:w-full whitespace-nowrap"
                         data-category="Accesorios">
                         Accesorios
                     </button>
@@ -707,9 +738,9 @@
     <!-- PRODUCT DETAIL MODAL (NEW) -->
     <div id="modal-product" class="fixed inset-0 z-[110] hidden">
         <div class="absolute inset-0 bg-black/95 backdrop-blur-xl" id="close-product-overlay"></div>
-        <div class="absolute inset-0 flex items-start md:items-center justify-center p-0 md:p-8">
+        <div class="absolute inset-x-0 bottom-0 top-0 md:inset-0 md:flex md:items-center md:justify-center p-0 md:p-8">
             <div
-                class="w-full max-w-5xl h-full md:h-auto md:max-h-[85vh] bg-zinc-950 md:rounded-3xl border-x-0 md:border border-zinc-800 shadow-2xl relative overflow-y-auto md:overflow-hidden flex flex-col md:flex-row animate-zoom-in-fast">
+                class="w-full max-w-5xl h-[100dvh] md:h-auto md:max-h-[85vh] bg-zinc-950 md:rounded-3xl border-x-0 md:border border-zinc-800 shadow-2xl relative overflow-y-auto md:overflow-hidden flex flex-col md:flex-row animate-zoom-in-fast no-scrollbar">
 
                 <button id="close-product-btn"
                     class="absolute top-4 right-4 z-50 bg-black/50 text-white p-2 rounded-full hover:bg-red-600 transition-colors">
