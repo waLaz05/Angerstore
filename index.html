@@ -233,6 +233,35 @@
             background: #ff0000;
             color: #fff;
         }
+
+        /* Mobile specific enhancements */
+        @media (max-width: 768px) {
+            .mobile-grid-gap {
+                gap: 1rem !important;
+            }
+
+            .mobile-text-xs {
+                font-size: 0.65rem !important;
+            }
+
+            .mobile-padding {
+                padding-left: 1rem !important;
+                padding-right: 1rem !important;
+            }
+        }
+
+        /* Prevent body scroll when menu open */
+        body.menu-open {
+            overflow: hidden;
+        }
+
+        #mobile-menu {
+            transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #mobile-menu.hidden-menu {
+            transform: translateY(-100%);
+        }
     </style>
 
     <!-- Firebase -->
@@ -280,7 +309,7 @@
 
                 <!-- Right Side: Social & Auth -->
                 <div class="flex items-center gap-3 md:gap-6">
-                    <!-- Right Side: Social -->
+                    <!-- Right Side: Social (Desktop) -->
                     <div class="hidden md:flex items-center gap-8 mr-12 h-full">
                         <a href="#catalog"
                             class="text-[11px] font-display font-bold text-white hover:text-zinc-400 uppercase tracking-widest">Ver
@@ -293,14 +322,42 @@
                             class="bg-red-600 text-white text-[9px] font-display font-black px-4 py-2 rounded-full uppercase tracking-tighter">Sale</span>
                     </div>
 
-                    <div class="flex items-center gap-6">
-                        <button id="auth-btn" class="text-white hover:text-zinc-400 transition-colors">
+                    <div class="flex items-center gap-4">
+                        <button id="auth-btn"
+                            class="text-white hover:text-zinc-400 transition-all p-2 bg-white/5 rounded-full md:bg-transparent">
                             <i data-lucide="user" class="w-5 h-5"></i>
                         </button>
-                    </div>
 
-                    <!-- Mobile Menu Icon (optional, not implementing full drawer now, just icons above) -->
+                        <!-- Mobile Hamburguer -->
+                        <button id="mobile-menu-btn" class="md:hidden text-white p-2">
+                            <i data-lucide="menu" class="w-6 h-6"></i>
+                        </button>
+                    </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- MOBILE MENU OVERLAY -->
+        <div id="mobile-menu"
+            class="fixed inset-0 bg-black z-[100] md:hidden hidden-menu flex flex-col items-center justify-center p-8 space-y-12">
+            <button id="close-mobile-menu" class="absolute top-8 right-8 text-white">
+                <i data-lucide="x" class="w-8 h-8"></i>
+            </button>
+            <div class="flex flex-col items-center gap-8 text-center">
+                <a href="#catalog"
+                    class="mobile-menu-link text-4xl font-display font-black uppercase tracking-tighter text-white">Ver
+                    Todo</a>
+                <a href="#catalog"
+                    class="mobile-menu-link text-4xl font-display font-black uppercase tracking-tighter text-white">Colecciones</a>
+                <a href="#catalog"
+                    class="mobile-menu-link text-4xl font-display font-black uppercase tracking-tighter text-white">Nuevos</a>
+                <a href="#catalog"
+                    class="mobile-menu-link text-xl font-display font-black uppercase tracking-widest bg-red-600 px-6 py-2 rounded-full text-white">Sale</a>
+            </div>
+            <div class="flex gap-8 pt-12 border-t border-white/10 w-full justify-center">
+                <a href="#" class="text-zinc-500 hover:text-white"><i data-lucide="instagram" class="w-6 h-6"></i></a>
+                <a href="https://wa.me/51907455019" target="_blank" class="text-zinc-500 hover:text-white"><i
+                        data-lucide="message-circle" class="w-6 h-6"></i></a>
             </div>
         </div>
     </nav>
@@ -409,7 +466,7 @@
     </section>
 
     <!-- MAIN CATALOG -->
-    <main id="catalog" class="bg-zinc-950 min-h-screen relative z-10 py-24 px-4 sm:px-6 lg:px-8">
+    <main id="catalog" class="bg-zinc-950 min-h-screen relative z-10 py-16 md:py-24 px-2 sm:px-6 lg:px-8">
 
         <!-- Filters Header -->
         <div class="max-w-[1400px] mx-auto mb-16">
@@ -429,11 +486,12 @@
             <!-- FILTERS DASHBOARD -->
             <div class="mb-8 space-y-4">
                 <!-- 0. Search Bar -->
-                <div class="relative w-full max-w-md">
+                <div class="relative w-full max-w-md mx-auto md:mx-0">
                     <input type="text" id="search-input"
-                        class="w-full bg-transparent border-b border-white/10 focus:border-white py-3 pl-10 pr-4 text-white placeholder-zinc-700 outline-none transition-all font-sans text-xs uppercase tracking-[0.2em]"
+                        class="w-full bg-zinc-900 md:bg-transparent border-b border-white/10 focus:border-white py-4 md:py-3 pl-10 pr-4 text-white placeholder-zinc-700 outline-none transition-all font-sans text-xs uppercase tracking-[0.2em] rounded-t-xl md:rounded-none"
                         placeholder="Chercher...">
-                    <i data-lucide="search" class="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-700"></i>
+                    <i data-lucide="search"
+                        class="absolute left-3 md:left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-700"></i>
                 </div>
 
                 <!-- 1. Quick Access Bar (Top Categories) -->
@@ -463,7 +521,8 @@
         </div>
 
         <!-- PRODUCT GRID -->
-        <div id="product-grid" class="max-w-[1400px] mx-auto grid grid-cols-2 lg:grid-cols-4 gap-6 px-2">
+        <div id="product-grid"
+            class="max-w-[1400px] mx-auto grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 px-1 md:px-2">
             <!-- Loader -->
             <div class="col-span-full flex flex-col items-center justify-center py-20 text-zinc-600">
                 <i data-lucide="loader-2" class="w-10 h-10 animate-spin mb-4"></i>
@@ -661,7 +720,7 @@
                 <div class="w-full md:w-3/5 bg-black relative flex flex-col h-[40vh] md:h-auto shrink-0 group">
                     <div class="flex-grow relative overflow-hidden">
                         <img id="detail-main-img" src=""
-                            class="absolute inset-0 w-full h-full object-contain bg-zinc-900 md:object-cover transition-transform duration-500"
+                            class="absolute inset-0 w-full h-full object-cover bg-zinc-900 transition-transform duration-500"
                             alt="Detail">
 
                         <!-- Slider Controls (Hidden by default, shown via JS if multiple images) -->

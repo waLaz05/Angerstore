@@ -68,6 +68,28 @@ let currentCategory = 'all';
 let currentSearchTerm = ''; // New
 let currentUploadFiles = []; // Array para guardar bases64 temporalmente
 
+// --- MOBILE MENU LOGIC ---
+const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+const closeMobileMenuBtn = document.getElementById('close-mobile-menu');
+const mobileMenu = document.getElementById('mobile-menu');
+const mobileLinks = document.querySelectorAll('.mobile-menu-link');
+
+const toggleMobileMenu = (show) => {
+    if (show) {
+        mobileMenu.classList.remove('hidden');
+        setTimeout(() => mobileMenu.classList.remove('hidden-menu'), 10);
+        document.body.classList.add('menu-open');
+    } else {
+        mobileMenu.classList.add('hidden-menu');
+        setTimeout(() => mobileMenu.classList.add('hidden'), 600);
+        document.body.classList.remove('menu-open');
+    }
+};
+
+if (mobileMenuBtn) mobileMenuBtn.addEventListener('click', () => toggleMobileMenu(true));
+if (closeMobileMenuBtn) closeMobileMenuBtn.addEventListener('click', () => toggleMobileMenu(false));
+mobileLinks.forEach(link => link.addEventListener('click', () => toggleMobileMenu(false)));
+
 // --- 1. AUTENTICACIÓN ---
 
 // Open Login Modal / Logout Flow
