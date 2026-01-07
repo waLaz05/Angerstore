@@ -539,23 +539,33 @@ function updateSliderUI() {
 }
 
 function showImage(index) {
-    if (!currentModalImages || currentModalImages.length === 0) return;
+    if (!currentModalImages || currentModalImages.length === 0 || !detailMainImg) return;
 
     if (index < 0) index = currentModalImages.length - 1;
     if (index >= currentModalImages.length) index = 0;
 
     currentImageIndex = index;
 
-    // Transition
-    if (detailMainImg) {
-        detailMainImg.style.opacity = '0.5';
-        setTimeout(() => {
-            detailMainImg.src = currentModalImages[currentImageIndex];
-            detailMainImg.style.opacity = '1';
-        }, 150);
-    }
+    // Efecto de Salida (Fade Out + Scale Up)
+    detailMainImg.style.opacity = '0';
+    detailMainImg.style.transform = 'scale(1.08)';
 
-    // Update thumbnails active state
+    // Esperar un poco para el cambio de fuente (para suavidad)
+    setTimeout(() => {
+        const nextImg = new Image();
+        nextImg.src = currentModalImages[currentImageIndex];
+
+        nextImg.onload = () => {
+            detailMainImg.src = nextImg.src;
+            // Efecto de Entrada (Fade In + Scale Normal)
+            requestAnimationFrame(() => {
+                detailMainImg.style.opacity = '1';
+                detailMainImg.style.transform = 'scale(1)';
+            });
+        };
+    }, 150);
+
+    // Actualizar miniaturas
     if (detailThumbnails) {
         const thumbs = detailThumbnails.querySelectorAll('img');
         thumbs.forEach((t, i) => {
@@ -569,6 +579,15 @@ function showImage(index) {
             }
         });
     }
+}
+
+// Pre-carga para fluidez total
+function preloadModalImages(urls) {
+    if (!urls) return;
+    urls.forEach(url => {
+        const img = new Image();
+        img.src = url;
+    });
 }
 
 // Slider Event Listeners (Using a wrapper to ensure current index is always fresh)
@@ -617,13 +636,23 @@ function handleSwipe() {
 
 // --- 3. DETAIL MODAL LOGIC ---
 function openProductDetail(product) {
-    // 1. Setup Images
+    // 1. Setup Images & Preload
     currentModalImages = (product.images && product.images.length > 0) ? product.images : [product.imageUrl];
     currentImageIndex = 0;
+    preloadModalImages(currentModalImages);
 
-    // 2. Set Main Image (Reset opacity first)
-    detailMainImg.style.opacity = '1';
-    detailMainImg.src = currentModalImages[0];
+    // 2. Set Main Image con reset de animación
+    detailMainImg.style.transition = 'none';
+    detailMainImg.style.opacity = '0';
+    detailMainImg.style.transform = 'scale(1.1)';
+
+    setTimeout(() => {
+        detailMainImg.src = currentModalImages[0];
+        detailMainImg.style.transition = 'all 0.8s cubic-bezier(0.23, 1, 0.32, 1)';
+        detailMainImg.style.opacity = '1';
+        detailMainImg.style.transform = 'scale(1)';
+    }, 50);
+
     detailMainImg.alt = product.name;
 
     // 3. Generate Thumbnails
