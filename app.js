@@ -1,16 +1,24 @@
 /**
- * BLACK WINGS BMX - MAIN APPLICATION LOGIC
+ * ANGER STREETWEAR - MAIN APPLICATION LOGIC
  * Handles: Firebase Interactions, UI Rendering, Animations, Admin Logic.
- * Author: Black Wings Dev Team
  */
 
 // REFERENCIAS DOM
 const productGrid = document.getElementById('product-grid');
 const authBtn = document.getElementById('auth-btn');
+const ADMIN_EMAIL = "josephivan3005@gmail.com"; // Global Admin Identifier - Corrected
+const modalLogin = document.getElementById('modal-login');
+const loginForm = document.getElementById('login-form');
+const loginEmailInput = document.getElementById('login-email');
+const loginPasswordInput = document.getElementById('login-password');
+const closeLoginBtn = document.getElementById('close-login-btn');
+const googleLoginBtn = document.getElementById('google-login-btn');
+const toggleAdminBtn = document.getElementById('toggle-admin-btn');
+const backToCustomerBtn = document.getElementById('back-to-customer-btn');
+const customerView = document.getElementById('login-customer-view');
+const adminView = document.getElementById('login-admin-view');
 const fabAdd = document.getElementById('fab-add');
-const searchInput = document.getElementById('search-input'); // New
-
-// Upload Modal
+const searchInput = document.getElementById('search-input');
 const modalUpload = document.getElementById('modal-upload');
 const uploadForm = document.getElementById('upload-form');
 const fileInput = document.getElementById('file-input');
@@ -19,6 +27,24 @@ const previewContainer = document.getElementById('preview-container');
 const uploadText = document.getElementById('upload-text');
 const cancelUploadOverlay = document.getElementById('cancel-upload-overlay');
 const submitBtn = document.getElementById('submit-btn');
+
+// --- Custom Cursor Spotlight (Editorial Touch) ---
+const cursor = document.createElement('div');
+cursor.className = 'fixed w-8 h-8 rounded-full pointer-events-none z-[999] mix-blend-difference hidden md:block transition-transform duration-100 ease-out';
+cursor.style.background = 'white';
+document.body.appendChild(cursor);
+
+document.addEventListener('mousemove', (e) => {
+    cursor.style.transform = `translate(${e.clientX - 16}px, ${e.clientY - 16}px)`;
+});
+
+// Scale cursor on hoverable elements
+document.querySelectorAll('a, button, img, .cursor-pointer').forEach(el => {
+    el.addEventListener('mouseenter', () => cursor.classList.replace('w-8', 'w-16'));
+    el.addEventListener('mouseenter', () => cursor.classList.replace('h-8', 'h-16'));
+    el.addEventListener('mouseleave', () => cursor.classList.replace('w-16', 'w-8'));
+    el.addEventListener('mouseleave', () => cursor.classList.replace('h-16', 'h-8'));
+});
 
 // Detail Modal
 const modalProduct = document.getElementById('modal-product');
@@ -30,7 +56,10 @@ const detailTitle = document.getElementById('detail-title');
 const detailPrice = document.getElementById('detail-price');
 const detailCategory = document.getElementById('detail-category');
 const detailCondition = document.getElementById('detail-condition');
-const detailWhatsappBtn = document.getElementById('detail-whatsapp-btn');
+const detailWhatsappBtn = document.getElementById('detail-buy-btn');
+const detailDescription = document.getElementById('detail-description');
+const detailStockCont = document.getElementById('detail-stock-container');
+const detailStockText = document.getElementById('detail-stock');
 
 // ESTADO
 let currentUser = null;
@@ -41,35 +70,144 @@ let currentUploadFiles = []; // Array para guardar bases64 temporalmente
 
 // --- 1. AUTENTICACIÓN ---
 
-// Login/Logout simple con Google
+// Open Login Modal / Logout Flow
 authBtn.addEventListener('click', () => {
+    // Instead of instant logout, we show the modal with a logout option
+    modalLogin.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+
     if (currentUser) {
-        firebase.auth().signOut();
+        // Show Logout View
+        customerView.classList.add('hidden');
+        adminView.classList.add('hidden');
+
+        // Add or show a logout section in the modal
+        let logoutSection = document.getElementById('logout-section');
+        if (!logoutSection) {
+            logoutSection = document.createElement('div');
+            logoutSection.id = 'logout-section';
+            logoutSection.className = 'text-center space-y-6 animate-fade-in-up';
+            logoutSection.innerHTML = `
+                <div class="flex flex-col items-center gap-4">
+                    <img src="${currentUser.photoURL || 'https://ui-avatars.com/api/?name=' + currentUser.email}" class="w-20 h-20 rounded-full border-2 border-neon/50 p-1">
+                    <div>
+                        <p class="text-white font-display font-bold uppercase tracking-widest text-lg">${currentUser.displayName || 'Master Admin'}</p>
+                        <p class="text-zinc-500 font-mono text-[10px] italic">${currentUser.email}</p>
+                    </div>
+                </div>
+                <button id="final-logout-btn" class="w-full bg-red-600/20 border border-red-600/50 text-red-500 font-display font-black uppercase tracking-[0.3em] py-4 hover:bg-red-600 hover:text-white transition-all rounded-xl">
+                    Cerrar Sesión Activa
+                </button>
+            `;
+            modalLogin.querySelector('.max-w-md').appendChild(logoutSection);
+
+            document.getElementById('final-logout-btn').addEventListener('click', () => {
+                firebase.auth().signOut().then(() => {
+                    modalLogin.classList.add('hidden');
+                    document.body.style.overflow = 'auto';
+                    showToast("Sesión cerrada", "info");
+                    logoutSection.remove();
+                });
+            });
+        }
     } else {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        firebase.auth().signInWithPopup(provider).catch(error => {
-            console.error(error);
-            showToast("Error al iniciar sesión: " + error.message, "error");
-        });
+        // NORMAL LOGIN FLOW
+        const logoutSection = document.getElementById('logout-section');
+        if (logoutSection) logoutSection.remove();
+        customerView.classList.remove('hidden');
+        adminView.classList.add('hidden');
     }
 });
 
-// Listener de Auth State
+// Toggle Views
+toggleAdminBtn.addEventListener('click', () => {
+    customerView.classList.add('hidden');
+    adminView.classList.remove('hidden');
+});
+
+backToCustomerBtn.addEventListener('click', () => {
+    customerView.classList.remove('hidden');
+    adminView.classList.add('hidden');
+});
+
+closeLoginBtn.addEventListener('click', () => {
+    modalLogin.classList.add('hidden');
+    document.body.style.overflow = 'auto';
+});
+
+// --- 1. AUTENTICACIÓN (Persistencia Mejorada) ---
+firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+    .catch(error => console.error("Error de persistencia:", error));
+
+// Handle Google Login (For Customers)
+googleLoginBtn.addEventListener('click', () => {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    firebase.auth().signInWithPopup(provider)
+        .then(() => {
+            modalLogin.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+            showToast("Bienvenido", "success");
+        })
+        .catch(error => showToast("Error: " + error.message, "error"));
+});
+
+// Handle Email/Password Login (For Admin)
+if (loginForm) {
+    loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        let email = loginEmailInput.value;
+        const password = loginPasswordInput.value;
+
+        if (!email.includes('@')) email = email + "@anger.com";
+
+        firebase.auth().signInWithEmailAndPassword(email, password)
+            .then(() => {
+                modalLogin.classList.add('hidden');
+                document.body.style.overflow = 'auto';
+                showToast("Admin Autenticado", "success");
+            })
+            .catch(error => showToast("Credenciales Inválidas", "error"));
+    });
+}
+
+// Global Auth Switch
 firebase.auth().onAuthStateChanged(user => {
     currentUser = user;
-    if (user) {
-        // Modo Admin
-        authBtn.textContent = 'LOGOUT';
-        authBtn.classList.add('bg-red-900', 'border-red-500'); // Visual feedback
-        fabAdd.classList.remove('hidden');
-        filterAndRender(); // Re-render para mostrar botones de borrar
-    } else {
-        // Modo Cliente
-        authBtn.textContent = 'ACCESS';
-        authBtn.classList.remove('bg-red-900', 'border-red-500');
+
+    // Reset UI
+    if (fabAdd) {
         fabAdd.classList.add('hidden');
-        filterAndRender();
+        fabAdd.style.setProperty('display', 'none', 'important');
     }
+
+    if (user) {
+        const userEmail = user.email.toLowerCase().trim();
+        const targetAdmin = ADMIN_EMAIL.toLowerCase().trim();
+
+        console.log("ANGER DEBUG - Current User:", userEmail);
+        console.log("ANGER DEBUG - Admin Required:", targetAdmin);
+
+        if (userEmail === targetAdmin) {
+            // ADMIN MODE - MASTER ACCESS (Red Dashboard Icon)
+            authBtn.innerHTML = `<i data-lucide="layout-dashboard" class="w-5 h-5 text-red-600"></i>`;
+            if (fabAdd) {
+                fabAdd.classList.remove('hidden');
+                fabAdd.style.setProperty('display', 'flex', 'important');
+                fabAdd.style.zIndex = '999999';
+            }
+            showToast("Master Access Granted", "success");
+        } else {
+            // CUSTOMER MODE
+            authBtn.innerHTML = `<img src="${user.photoURL || 'https://ui-avatars.com/api/?name=' + user.email}" class="w-6 h-6 rounded-full border border-white/20">`;
+        }
+    } else {
+        // LOGGED OUT
+        authBtn.innerHTML = `<i data-lucide="user" class="w-5 h-5"></i>`;
+    }
+
+    // Refresh catalog with current role context
+    filterAndRender();
+    if (window.lucide) lucide.createIcons();
 });
 
 // --- 2. GESTIÓN DE PRODUCTOS (FIRESTORE) ---
@@ -81,13 +219,18 @@ let visibleLimit = 12; // Start small for speed
 const LIMIT_INCREMENT = 12;
 
 // Skeleton Loader
+// Skeleton Loader (Premium Editorial Shimmer)
 function renderSkeleton() {
     productGrid.innerHTML = '';
     const skeletonHTML = `
-        <div class="bg-zinc-900 rounded-xl overflow-hidden aspect-square animate-pulse">
-            <div class="bg-zinc-800 h-full w-full"></div>
+        <div class="group relative bg-zinc-950 overflow-hidden">
+            <div class="aspect-[3/4] shimmer"></div>
+            <div class="p-4 space-y-3">
+                <div class="h-3 w-2/3 shimmer rounded-sm opacity-50"></div>
+                <div class="h-4 w-1/3 shimmer rounded-sm opacity-30"></div>
+            </div>
         </div>
-    `.repeat(4); // Show 4 skeletons
+    `.repeat(8);
     productGrid.innerHTML = skeletonHTML;
 }
 
@@ -158,16 +301,13 @@ if (toggleFiltersBtn) {
 // Using existing `filterBtns` logic but simplified for new active states.
 filterBtns.forEach(btn => {
     btn.addEventListener('click', () => {
-        // UI Update
+        // UI Update (Rome Style)
         document.querySelectorAll('.filter-btn').forEach(b => {
-            // Reset all buttons to default state
-            b.classList.remove('border-neon', 'text-white', 'bg-zinc-800', 'active', 'shadow-[0_0_15px_rgba(255,77,0,0.15)]');
-            b.classList.add('text-zinc-400');
+            b.classList.remove('text-white', 'after:w-full');
+            b.classList.add('text-zinc-500', 'after:w-0');
         });
-
-        // Set Active State
-        btn.classList.remove('text-zinc-400');
-        btn.classList.add('border-neon', 'text-white', 'bg-zinc-800', 'active', 'shadow-[0_0_15px_rgba(255,77,0,0.15)]');
+        btn.classList.add('text-white', 'after:w-full');
+        btn.classList.remove('text-zinc-500', 'after:w-0');
 
         currentCategory = btn.dataset.category;
         filterAndRender();
@@ -226,22 +366,20 @@ function renderGrid(items) {
     productsToShow.forEach((product, index) => {
         const card = document.createElement('div');
 
-        // Determinar imagen principal (Backward compatibility)
-        const mainImage = product.images && product.images.length > 0 ? product.images[0] : product.imageUrl;
-        const imageCount = product.images ? product.images.length : 1;
+        // Determine images (Backward compatibility)
+        const thumbnails = (product.images && product.images.length > 0) ? product.images : [product.imageUrl];
+        const isSoldOut = product.status === 'sold';
 
-        // Visual indicator for multiple images
-        const multiImageBadge = imageCount > 1
-            ? `<span class="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2 py-1 rounded-full font-bold z-10">
-                <i data-lucide="layers" class="w-3 h-3 inline mr-1"></i>${imageCount}
-               </span>`
-            : '';
+        // Card Container (Add Cinematic reveal classes)
+        card.className = 'group relative bg-zinc-950 overflow-hidden cursor-pointer selection-premium';
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(30px)';
 
-        // Tailwind Card Container (Cyber Upgrade)
-        // Added cursor-pointer because clicking opens the modal now
-        card.className = 'group relative bg-black border border-zinc-800 hover:border-neon hover:shadow-[0_0_30px_rgba(255,77,0,0.15)] hover:-translate-y-1 transition-all duration-300 rounded-xl overflow-hidden cursor-pointer';
-        card.setAttribute('data-aos', 'fade-up');
-        card.setAttribute('data-aos-delay', (index % 4) * 50);
+        setTimeout(() => {
+            card.style.transition = 'all 0.8s cubic-bezier(0.2, 1, 0.3, 1)';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 50); // Staggered reveal
 
         // Open Detail Modal on Click
         card.addEventListener('click', (e) => {
@@ -254,84 +392,71 @@ function renderGrid(items) {
             openProductDetail(product);
         });
 
-        // Admin Controls
+        // Admin Controls (SECURITY FIX: Strictly check email)
         let adminControls = '';
-        if (currentUser) {
+        if (currentUser && currentUser.email.toLowerCase().trim() === ADMIN_EMAIL) {
             const isSold = product.status === 'sold';
-            const soldIcon = isSold ? 'refresh-ccw' : 'tag'; // Icon changes
-            const soldColor = isSold ? 'bg-zinc-600' : 'bg-blue-600 hover:bg-blue-700';
+            const soldIcon = isSold ? 'refresh-ccw' : 'tag';
+            const soldColor = isSold ? 'bg-zinc-600' : 'bg-red-600 hover:bg-red-700';
 
             adminControls = `
                 <div class="absolute top-2 right-2 z-20 flex gap-2">
                     <button onclick="toggleSoldStatus(event, '${product.id}', ${isSold})" class="action-btn ${soldColor} text-white p-2 transition-colors shadow-lg rounded-full" title="${isSold ? 'Marcar Disponible' : 'Marcar Vendido'}">
                         <i data-lucide="${soldIcon}" width="16"></i>
                     </button>
-                    <button onclick="deleteProduct(event, '${product.id}')" class="delete-btn bg-red-600 text-white p-2 hover:bg-red-700 transition-colors shadow-lg rounded-full">
+                    <button onclick="deleteProduct(event, '${product.id}')" class="delete-btn bg-black text-white p-2 hover:bg-zinc-800 transition-colors shadow-lg rounded-full">
                         <i data-lucide="trash-2" width="16"></i>
                     </button>
                 </div>
             `;
         }
 
-        const isNew = product.condition === 'Nuevo';
-        // Tech Badges Style (Outline/Ghost)
-        const badgeColor = isNew
-            ? 'border border-neon text-neon bg-neon/10'
-            : 'border border-zinc-600 text-zinc-400 bg-zinc-900/50';
-
-        const categoryName = product.category || 'PART';
-        const isSoldOut = product.status === 'sold';
-
-        // Custom Styles for Sold Out
-        const containerClasses = isSoldOut ? 'grayscale opacity-75 md:opacity-60 pointer-events-none' : 'group-hover:opacity-100 group-hover:scale-110';
-        const badgeSoldOut = isSoldOut
-            ? `<div class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                 <div class="bg-red-600 text-white font-black font-display rotate-[-12deg] text-3xl px-4 py-2 border-4 border-white shadow-2xl tracking-widest uppercase opacity-100">AGOTADO</div>
-               </div>`
-            : '';
-
         // HTML Logic
+        const hasMultiple = thumbnails.length > 1;
+        const secondaryImg = hasMultiple ? thumbnails[1] : thumbnails[0];
+
+        // Show Info
+        const stockInfo = product.stock ? `<span class="block text-zinc-600 text-[9px] uppercase tracking-widest mt-1">Stock: ${product.stock}</span>` : '';
+
         card.innerHTML = `
             <!-- Image Container -->
-            <div class="relative w-full aspect-square overflow-hidden bg-zinc-900">
-                <img src="${mainImage}" class="w-full h-full object-cover opacity-90 transition-transform duration-700 ease-out ${containerClasses}" alt="${product.name}" loading="lazy">
+            <div class="aspect-[4/5] overflow-hidden bg-[#0a0a0a] flex items-center justify-center p-0 relative transition-colors duration-500 overflow-hidden">
+                <!-- Primary Image -->
+                <img src="${thumbnails[0]}"
+                    class="w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-105 ${hasMultiple ? 'group-hover:opacity-0' : ''}"
+                    alt="${product.name}">
                 
-                <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60"></div>
-                ${badgeSoldOut}
+                ${hasMultiple ? `
+                <!-- Secondary Image (Hover) -->
+                <img src="${secondaryImg}"
+                    class="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition-all duration-700 ease-out scale-110 group-hover:scale-105"
+                    alt="${product.name} back">
                 
-                <!-- Tech Tags -->
-                <div class="absolute top-2 left-2 flex flex-col gap-1 items-start z-10 w-full pr-2">
-                    <span class="text-[9px] font-mono font-bold uppercase tracking-widest px-2 py-1 rounded-md ${badgeColor} backdrop-blur-sm">
-                        ${product.condition}
-                    </span>
-                    <span class="text-[9px] font-mono font-bold uppercase tracking-widest px-2 py-1 bg-black/80 text-white border border-white/20 rounded-md backdrop-blur-sm truncate max-w-[80%]">
-                        ${categoryName}
-                    </span>
+                <!-- Multi-image Indicator Badge -->
+                <div class="absolute top-4 left-4 z-10">
+                    <div class="flex items-center gap-1 bg-black/40 backdrop-blur-md px-2 py-1 rounded-sm border border-white/10">
+                        <i data-lucide="layers" class="w-2.5 h-2.5 text-white/70"></i>
+                        <span class="text-[8px] text-white/70 font-display font-bold uppercase tracking-widest">${thumbnails.length}</span>
+                    </div>
                 </div>
-                ${multiImageBadge}
+                ` : ''}
+
+                ${isSoldOut ? `
+                    <div class="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-[2px] z-20">
+                        <span class="text-white text-[10px] font-display font-black uppercase tracking-[0.4em]">OUT OF STOCK</span>
+                    </div>` : ''}
                 ${adminControls}
             </div>
 
             <!-- Info Container -->
-            <div class="p-5 relative ${isSoldOut ? 'opacity-40' : ''} border-t border-zinc-900">
-                <div class="flex flex-col gap-1 mb-3">
-                    <h3 class="text-white font-display font-bold text-lg leading-tight uppercase tracking-tight group-hover:text-neon transition-colors line-clamp-1">
-                        ${product.name}
-                    </h3>
-                    <div class="w-8 h-0.5 bg-zinc-800 group-hover:bg-neon transition-colors duration-500"></div>
+            <div class="py-6 px-0 text-left flex flex-col items-start border-t border-white/5">
+                <h3 class="text-zinc-400 font-display text-[10px] uppercase tracking-[0.3em] group-hover:text-white transition-colors mb-2 italic">
+                    ${product.name}
+                </h3>
+                <div class="text-white font-sans font-light text-base tracking-tighter">
+                   S/ ${parseFloat(product.price).toFixed(2)}
                 </div>
-                
-                <div class="flex items-end justify-between mt-auto">
-                    <div class="flex flex-col">
-                        <span class="text-[9px] text-zinc-500 font-mono uppercase tracking-widest mb-px">Precio</span>
-                        <div class="font-display font-black text-white text-2xl tracking-tighter group-hover:text-neon transition-colors">
-                            S/ ${product.price}
-                        </div>
-                    </div>
-                    <div class="text-zinc-600 group-hover:text-white transition-colors bg-zinc-900/50 p-2 rounded-lg border border-transparent group-hover:border-zinc-700">
-                        <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
-                    </div>
-                </div>
+                ${stockInfo}
             </div>
         `;
 
@@ -349,7 +474,7 @@ function renderGrid(items) {
         const loadMoreContainer = document.createElement('div');
         loadMoreContainer.className = 'col-span-full flex justify-center py-8 animate-fade-in-up';
         loadMoreContainer.innerHTML = `
-            <button id="load-more-btn" onclick="loadMoreProducts()" 
+            <button id="load-more-btn" onclick="loadMoreProducts()"
                 class="group relative px-8 py-3 bg-zinc-900 border border-zinc-700 text-white font-display font-bold uppercase tracking-widest hover:bg-zinc-800 hover:border-neon transition-all duration-300 rounded-full shadow-lg">
                 <span class="relative z-10 flex items-center gap-2">
                     Cargar Más Arsenal <i data-lucide="arrow-down" class="w-4 h-4 group-hover:translate-y-1 transition-transform"></i>
@@ -480,10 +605,11 @@ function openProductDetail(product) {
 
     // 5. Set Info
     detailTitle.textContent = product.name;
-    detailPrice.innerHTML = product.price; // innerHTML for styling if needed, but safe here
+    detailPrice.innerHTML = `S/ ${parseFloat(product.price).toFixed(2)}`; // Ensure 2 decimal places
 
     detailCategory.textContent = product.category || 'GENERAL';
     detailCondition.textContent = product.condition;
+    detailDescription.textContent = product.description || 'Sin descripción disponible.';
 
     // Colors for badges
     if (product.condition === 'Nuevo') {
@@ -492,22 +618,39 @@ function openProductDetail(product) {
         detailCondition.className = "text-[10px] font-bold uppercase tracking-widest px-3 py-1 bg-zinc-700 text-zinc-300 rounded-full";
     }
 
-    // WhatsApp Link
-    const message = `Hola Black Wings! Estoy interesado en el producto: *${product.name}* (S/ ${product.price}). ¿Está disponible?`;
+    // WhatsApp Link Logic
+    const message = `Hola Anger! Estoy interesado en el producto: *${product.name}* (S/ ${parseFloat(product.price).toFixed(2)}). ¿Está disponible?`;
     const encodedMessage = encodeURIComponent(message);
-    detailWhatsappBtn.href = `https://wa.me/51958988632?text=${encodedMessage}`;
+    const whatsappLink = `https://wa.me/51907455019?text=${encodedMessage}`;
 
-    // Show Modal
+    if (detailWhatsappBtn) detailWhatsappBtn.href = whatsappLink;
+
+    // Set Stock (Visible for everyone)
+    if (product.stock && detailStockCont && detailStockText) {
+        detailStockCont.classList.remove('hidden');
+        detailStockText.textContent = `Stock: ${product.stock}`;
+        // Color based on stock
+        const dot = detailStockCont.querySelector('span');
+        if (dot) dot.className = product.stock <= 2 ? 'w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse' : 'w-1.5 h-1.5 rounded-full bg-green-500';
+    } else if (detailStockCont) {
+        detailStockCont.classList.add('hidden');
+    }
+
+    // Show Modal with Cinematic Entrance
     modalProduct.classList.remove('hidden');
-    document.body.style.overflow = 'hidden'; // Lock Body Scroll
+    document.body.style.overflow = 'hidden';
 
-    // Animation
-    const modalContent = modalProduct.querySelector('#detail-main-img').closest('div').parentElement; // Target main wrapper
-    // Actually simpler to just target the inner div we know
     const innerContent = modalProduct.querySelector('.max-w-5xl');
     if (innerContent) {
-        innerContent.classList.remove('scale-95', 'opacity-0');
-        innerContent.classList.add('scale-100', 'opacity-100');
+        innerContent.style.opacity = '0';
+        innerContent.style.transform = 'scale(1.1) translateY(40px)';
+        innerContent.style.transition = 'none'; // Reset
+
+        requestAnimationFrame(() => {
+            innerContent.style.transition = 'all 0.9s cubic-bezier(0.2, 1, 0.3, 1)';
+            innerContent.style.opacity = '1';
+            innerContent.style.transform = 'scale(1) translateY(0)';
+        });
     }
 }
 
@@ -526,8 +669,8 @@ if (closeProductOverlay) closeProductOverlay.addEventListener('click', closeProd
 // Compress Image Logic
 function compressImage(file) {
     return new Promise((resolve, reject) => {
-        const maxWidth = 800; // Limit size
-        const quality = 0.5;  // Aggressive compression for multi-image
+        const maxWidth = 1200; // Increased size for better quality
+        const quality = 0.85;  // Higher quality (was 0.5)
 
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -647,8 +790,10 @@ uploadForm.addEventListener('submit', async (e) => {
     if (!category) { showToast("Selecciona una categoría.", "error"); return; }
 
     const name = document.getElementById('name-input').value;
-    const price = document.getElementById('price-input').value;
-    const condition = document.getElementById('condition-input').value;
+    const priceStr = document.getElementById('price-input').value;
+    const price = parseFloat(priceStr).toFixed(2);
+    const stock = parseInt(document.getElementById('stock-input').value) || 1;
+    const description = document.getElementById('description-input').value;
 
     submitBtn.disabled = true;
     submitBtn.textContent = "PROCESANDO FOTOS...";
@@ -660,11 +805,12 @@ uploadForm.addEventListener('submit', async (e) => {
 
         // Save to Firestore (Array 'images')
         await db.collection('products').add({
-            name, price, condition, category,
-            images: base64Images, // New Array Field
-            imageUrl: base64Images[0], // Fallback for old logic
+            name, price, stock, category,
+            images: base64Images,
+            imageUrl: base64Images[0],
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            createdBy: currentUser.uid
+            createdBy: currentUser.uid,
+            status: 'available'
         });
 
         // Success
@@ -754,3 +900,60 @@ window.deleteProduct = async (event, id) => {
         showToast("Error al eliminar", "error");
     }
 };
+
+// --- Premium Smooth Scroll for Internal Links ---
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        if (this.getAttribute('href').startsWith('#')) {
+            e.preventDefault();
+            const targetId = this.getAttribute('href');
+            const targetElement = document.querySelector(targetId);
+
+            if (targetElement) {
+                const headerOffset = 80;
+                const elementPosition = targetElement.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+                window.scrollTo({
+                    top: offsetPosition,
+                    behavior: 'smooth'
+                });
+            }
+        }
+    });
+});
+
+// Update cursor for dynamically added elements (like product cards)
+const updateCursorInteractions = () => {
+    document.querySelectorAll('a, button, img, .cursor-pointer, .filter-btn').forEach(el => {
+        if (!el.dataset.cursorBound) {
+            el.addEventListener('mouseenter', () => {
+                cursor.style.width = '64px';
+                cursor.style.height = '64px';
+                cursor.style.opacity = '0.3';
+            });
+            el.addEventListener('mouseleave', () => {
+                cursor.style.width = '32px';
+                cursor.style.height = '32px';
+                cursor.style.opacity = '1';
+            });
+            el.dataset.cursorBound = "true";
+        }
+    });
+};
+
+// Call initially
+setTimeout(updateCursorInteractions, 1000);
+
+// Observer for Section Reveals (Adds extra layer of animation)
+const sectionObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            entry.target.classList.add('reveal-active');
+        }
+    });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('section, main').forEach(section => {
+    sectionObserver.observe(section);
+});
